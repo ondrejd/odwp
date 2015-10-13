@@ -82,7 +82,7 @@ abstract class SimplePlugin {
 
         // Initialize the localization
         if (!empty($this->textdomain)) {
-            load_plugin_textdomain($this->textdomain, $this->path());
+            load_plugin_textdomain($this->textdomain, true, $this->id());
         }
 
         // Plug-in's activation/deactivation
@@ -91,7 +91,7 @@ abstract class SimplePlugin {
         }
 
         if (method_exists($this, 'deactivate')) {
-            register_deactivation_hook(__FILE__, array(&$this, 'deactivate'));
+            register_deactivation_hook(__FILE__, array($this, 'deactivate'));
         }
 
         // Initialize plugin's widgets
@@ -103,7 +103,7 @@ abstract class SimplePlugin {
         }
 
         // Register admin menu
-        if (function_exists($this, 'register_admin_menu')) {
+        if (method_exists($this, 'register_admin_menu')) {
             add_action('admin_menu', array($this, 'register_admin_menu'));
         }
 
