@@ -1,2 +1,3 @@
 # odwp
-Tiny library for my WordPress plug-ins.
+
+Tiny library for [WordPress](https://wordpress.org/) plug-ins.

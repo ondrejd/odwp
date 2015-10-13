@@ -1,0 +1,28 @@
+{
+	"name": "ondrejd/odwp",
+	"description": "Tiny library for WordPress plug-ins.",
+	"homepage": "https://github.com/ondrejd/odwp",
+	"type": "library",
+	"license": "MPL-2.0",
+	"keywords": ["library"],
+	"minimum-stability": "dev",
+	"authors": [
+		{
+			"name": "Ondřej Doněk",
+			"email": "ondrejd@gmail.com",
+			"role": "Developer"
+		}
+	],
+	"autoload": {
+		"psr-0": {
+			"odwp\\": "src/"
+		},
+		"classmap": [
+			"./"
+		]
+	},
+	"require": {
+		"php": ">=5.3.1",
+		"latte/latte": "~2.3"
+	}
+}
