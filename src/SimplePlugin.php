@@ -27,43 +27,103 @@ namespace odwp;
  * </pre>
  *
  * @author Ondřej Doněk, <ondrej.donek@ebrana.cz>
- * @version 0.1
+ * @version 0.1.1
  */
 abstract class SimplePlugin {
     /**
-     * @var string $id ID of the plug-in.
+     * Identifier of the plug-in.
+     * @var string $id
      */
     protected $id;
 
     /**
-     * @var string version Plug-in's version.
-     */
-    protected $version;
-
-    /**
-     * @var string version Plug-in's textdomain.
-     */
-    protected $texdomain;
-
-    /**
-     * @var array $options Default options.
+     * Default options of the plugin.
+     * @var array $options
      */
     protected $options;
 
     /**
-     * @since 0.1
-     * @param string $size (Optional.)
-     * @return string Returns URL to the plug-in's icon.
+     * Textdomain of the plug-in.
+     * @var string $textdomain
      */
-    public function icon($size = '32') {
-        if (!defined('WP_PLUGIN_URL')) {
-            if (function_exists('wp_plugin_directory_constants')) {
-                throw new \Exception('It looks like there is no WordPress loaded!');
-            }
-            wp_plugin_directory_constants();
+    protected $texdomain;
+
+    /**
+     * Version of the plug-in.
+     * @var string $version
+     */
+    protected $version;
+
+    /**
+     * Widgets provided by the plug-in. Array should contains class names of the widgets.
+     * @var array $widgets
+     */
+    protected $widgets;
+
+    /**
+     * Constructor.
+     *
+     * @since 0.1.1
+     * @return void
+     */
+    public function __construct() {
+        if (
+            !function_exists('load_plugin_textdomain') ||
+            !function_exists('register_activation_hook') ||
+            !function_exists('register_deactivation_hook') ||
+            !function_exists('add_action') ||
+            !function_exists('is_admin')
+        ) {
+            throw new \Exception('It looks like there is no WordPress loaded!');
         }
 
-        return WP_PLUGIN_URL . '/' . $this->id('/icon' . $size . '.png');
+        // Initialize options
+        $this->init_options();
+
+        // Initialize the localization
+        if (!empty($this->textdomain)) {
+            load_plugin_textdomain($this->textdomain, $this->path());
+        }
+
+        // Plug-in's activation/deactivation
+        if (method_exists($this, 'activate')) {
+            register_activation_hook(__FILE__, array($this, 'activate'));
+        }
+
+        if (method_exists($this, 'deactivate')) {
+            register_deactivation_hook(__FILE__, array(&$this, 'deactivate'));
+        }
+
+        // Initialize plugin's widgets
+        add_action('widgets_init', array($this, 'init_widgets'));
+
+        // Below are things required only in WP administration...
+        if(!is_admin()) {
+            return;
+        }
+
+        // Register admin menu
+        if (function_exists($this, 'register_admin_menu')) {
+            add_action('admin_menu', array($this, 'register_admin_menu'));
+        }
+
+        // Register TinyMCE buttons
+        if (method_exists($this, 'register_tinymce_buttons')) {
+            add_action('init', array($this, 'register_tinymce_buttons'));
+        }
+    }
+
+    /**
+     * Returns array with options of the plug-in.
+     *
+     * @return array
+     */
+    public function get_options() {
+        if (!function_exists('get_option')) {
+            throw new \Exception('It looks like there is no WordPress loaded!');
+        }
+
+        return get_option($this->id . '-options');
     }
 
     /**
@@ -78,6 +138,85 @@ abstract class SimplePlugin {
         }
 
         return $ret;
+    }
+
+    /**
+     * @since 0.1
+     * @param string $size (Optional.)
+     * @return string Returns URL to the plug-in's icon.
+     */
+    public function icon($size = '32') {
+        if (!defined('WP_PLUGIN_URL')) {
+            if (!function_exists('wp_plugin_directory_constants')) {
+                throw new \Exception('It looks like there is no WordPress loaded!');
+            }
+            wp_plugin_directory_constants();
+        }
+
+        return WP_PLUGIN_URL . '/' . $this->id('/icon' . $size . '.png');
+    }
+
+    /**
+     * Initialize plugin's options
+     *
+     * @since 0.1.1
+     * @return array
+     */
+    public function init_options() {
+        if (!function_exists('get_option') || !function_exists('update_option')) {
+            throw new \Exception('It looks like there is no WordPress loaded!');
+        }
+
+        if (!is_array($this->options)) {
+            $this->options = array();
+        }
+
+        $options_id = $this->id('-options');
+        $options = get_option($options_id);
+        $need_update = false;
+
+        if($options === false) {
+            $need_update = true;
+            $options = array();
+        }
+
+        foreach($this->options as $key => $value) {
+            if(!array_key_exists($key, $options)) {
+                $options[$key] = $value;
+            }
+        }
+
+        if(!array_key_exists('latest_used_version', $options)) {
+            $options['latest_used_version'] = $this->version;
+            $need_update = true;
+        }
+
+        if($need_update === true) {
+            update_option($options_id, $options);
+        }
+
+        return $options;
+    }
+
+    /**
+     * Initializes widgets (if are any defined).
+     *
+     * @return void
+     */
+    public function init_widgets() {
+        if (!is_array($this->widgets)) {
+            $this->widgets = array();
+        }
+
+        if (count($this->widgets) > 0) {
+            return;
+        }
+
+        foreach ($this->widgets as $widget) {
+            if (class_exists($widget)) {
+                register_widget($widget);
+            }
+        }
     }
 
     /**

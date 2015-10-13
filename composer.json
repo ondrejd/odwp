@@ -5,6 +5,7 @@
 	"type": "library",
 	"license": "MPL-2.0",
 	"keywords": ["library"],
+	"version": "0.1.1",
 	"minimum-stability": "dev",
 	"authors": [
 		{
