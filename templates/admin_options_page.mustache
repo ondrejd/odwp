@@ -2,6 +2,51 @@
 	<div class="icon32">
 		<img src="{{ icon }}"/>
 	</div>
-	<h2>{{ title }}</h2>
-	<p>...</p>
+
+	<h1>{{ title }}</h1>
+
+	{{# message }}
+	<div id="{{ message_id }}" class="{{ message_type }} fade">
+		<p>{{ message_text }}</p>
+	</div>
+	{{/ message }}
+
+	<form enctype="multipar/form-data" method="post" action="{{ form_url }}">
+		<div>
+			<table class="form-table">
+				{{# options }}
+				<tr>
+					<th scope="row">
+						<label for="option-{{ key }}">{{ label }}</label>
+					</th>
+					<td>
+						{{# is_bool }}
+						{{# value }}
+						<input type="checkbox" id="option-{{ key }}" name="option-{{ key }}" checked="checked"/>
+						{{/ value }}
+						{{^ value }}
+						<input type="checkbox" id="option-{{ key }}" name="option-{{ key }}"/>
+						{{/ value }}
+						{{/ is_bool }}
+
+						{{# is_number }}
+						<input type="number" id="option-{{ key }}" name="option-{{ key }}" value="{{ value }}"/>
+						{{/ is_number }}
+
+						{{# is_string }}
+						<input type="text" class="regular-text" id="option-{{ key }}" name="option-{{ key }}" value="{{ value }}"/>
+						{{/ is_string }}
+
+						{{# description }}
+						<p id="{{ key }}-description" class="description">{{ description }}</p>
+						{{/ description }}
+					</td>
+				</tr>
+				{{/ options }}
+			</table>
+			{{! TODO Translate submit button label! }}
+			<input type="submit" class="button button-primary" value="Saves Changes" name="submit"/>
+		</div>
+	</form>
+
 </div>

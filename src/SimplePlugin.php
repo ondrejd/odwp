@@ -17,12 +17,6 @@ namespace odwp;
  *     protected $id = 'od-downloads-plugin';
  *     protected $version = '0.5';
  *     protected $texdomain = 'oddp';
- *     protected $options = array(
- *         'main_downloads_dir' => 'wp-content/downloads/',
- *         'downloads_page_id' => 0,
- *         'downloads_thumb_size_width' => 146,
- *         'downloads_shortlist_max_count' => 2
- *     );
  *
  *     public function get_title($suffix = '', $sep = ' - ') {
  *         if (empty($suffix)) {
@@ -39,7 +33,7 @@ namespace odwp;
  * </pre>
  *
  * @author Ondřej Doněk, <ondrej.donek@ebrana.cz>
- * @version 0.1.6
+ * @version 0.1.7
  */
 abstract class SimplePlugin {
     /**
@@ -49,7 +43,7 @@ abstract class SimplePlugin {
     protected $id;
 
     /**
-     * Default options of the plugin.
+     * Default options of the plug-in.
      * @var array $options
      */
     protected $options;
@@ -97,6 +91,12 @@ abstract class SimplePlugin {
     protected $tplEngine;
 
     /**
+     * Holds `TRUE` if textdomain is already initialized.
+     * @var boolean $locales_initialized
+     */
+    private $locales_initialized;
+
+    /**
      * Constructor.
      *
      * @since 0.1.1
@@ -123,24 +123,20 @@ abstract class SimplePlugin {
             throw new \Exception('You need to create cache directorry for Latte Templating Engine.');
         }
 
-        // Initialize Latte for templating
-        // @link https://doc.nette.org/cs/2.3/templating
+        // Initialize Mustache for templating
+        // @link https://github.com/bobthecow/mustache.php
         $this->tplEngine = new \Mustache_Engine(array(
-//            'template_class_prefix' => '__MyTemplates_',
             'cache' => $cache_path,
             'cache_file_mode' => 0666,
             'cache_lambda_templates' => true,
             'charset' => 'UTF-8'
         ));
-        //$this->latte->setTempDirectory($cache_path);
 
         // Initialize options
         $this->init_options();
 
         // Initialize the localization
-        if (!empty($this->textdomain)) {
-            load_plugin_textdomain($this->textdomain, true, $this->get_id());
-        }
+        $this->init_locales();
 
         // Plug-in's activation/deactivation
         if (method_exists($this, 'activate')) {
@@ -330,6 +326,18 @@ abstract class SimplePlugin {
     }
 
     /**
+     * Initialize the localization.
+     * 
+     * @return void
+     */
+    public function init_locales() {
+        if (!empty($this->textdomain) && $this->locales_initialized !== true) {
+            load_plugin_textdomain($this->textdomain, true, $this->get_id());
+            $this->locales_initialized = true;
+        }
+    }
+
+    /**
      * Initialize plugin's options
      *
      * @since 0.1.1
@@ -474,11 +482,114 @@ abstract class SimplePlugin {
      */
     public function render_admin_options_page() {
         $tpl = $this->get_template('admin_options_page');
+        $default = $this->options;
+        $current = $this->get_options();
         $params = array(
             'icon' => $this->get_icon(),
-            'title' => $this->get_title(__('Settings', $this->get_textdomain()))
+            'title' => $this->get_title(__('Settings', $this->get_textdomain())),
+            'form_url' => get_bloginfo('url') . '/wp-admin/admin.php?page=' . $this->get_id('-settings')
         );
 
+        // Update options if necessarry
+        if (filter_input(INPUT_POST, 'submit')) {
+            $res = $this->save_options($default);
+
+            $params['message'] = true;
+            $params['message_id'] = 'message_'.rand(0, 99);
+
+            if ($res === true) {
+                $params['message_type'] = 'updated';
+                $params['message_text'] = __(
+                    'Options were successfully updated!',
+                    $this->get_textdomain()
+                );
+                $current = $this->get_options();
+            }
+            else {
+                $params['message_type'] = 'error';
+                $params['message_text'] = __(
+                    'Options were <b>NOT</b> successfully updated!',
+                    $this->get_textdomain()
+                );
+            }
+        }
+
+        // Prepare options for rendering
+        $params['options'] = $this->prepare_options_for_render($default, $current);
+
+        // Render template
         echo $this->tplEngine->render($tpl, $params);
     }
-} // End of SimplePlugin
+
+    /**
+     * @internal
+     * @since 0.1.7
+     * @param array $default Default options.
+     * @param array $current Currently set options.
+     * @return array Returns prepared options for rendering.
+     */
+    private function prepare_options_for_render($default, $current) {
+        $params = array();
+
+        foreach ($default as $option) {
+            $param = array();
+            $param['key'] = $option->key;
+            $param['label'] = $option->label;
+
+            $key = $option->key;
+            $value = array_key_exists($key, $current) ? $current[$key] : $default[$key];
+
+            switch ($option->type) {
+                case \odwp\PluginOption::TYPE_BOOL:
+                    $param['is_bool'] = true;
+                    $param['value'] = boolval($value);
+                    break;
+
+                case \odwp\PluginOption::TYPE_NUMBER:
+                    $param['is_number'] = true;
+                    $param['value'] = intval($value);
+                    break;
+
+                default:
+                case \odwp\PluginOption::TYPE_STRING:
+                    $param['is_string'] = true;
+                    $param['value'] = strval($value);
+                    break;
+            }
+
+            if (!empty($option->description)) {
+                $param['description'] = $option->description;
+            }
+
+            $params[] = $param;
+        }
+
+        return $params;
+    }
+
+    /**
+     * @internal
+     * @since 0.1.7
+     * @param array $default Default options.
+     * @return boolean `TRUE` if saving was successfull otherwise `FALSE`.
+     */
+    private function save_options($default) {
+        $updated = array();
+        $updated['latest_used_version'] = $this->version;
+
+        foreach ($default as $option) {
+            $new_val = filter_input(INPUT_POST, 'option-' . $option->key);
+
+            if ($option->type == \odwp\PluginOption::TYPE_BOOL) {
+                $new_val = !is_null($new_val);
+            }
+            else if (is_null($new_val)) {
+                $new_val = $option->value;
+            }
+
+            $updated[$option->key] = $new_val;
+        }
+
+        return update_option($this->get_id('-options'), $updated);
+    }
+}
