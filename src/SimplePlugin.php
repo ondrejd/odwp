@@ -14,9 +14,9 @@ namespace odwp;
  * Usage:
  * <pre>
  * class MySimplePlugin extends \odwp\SimplePlugin {
- *     protected $id = 'od-downloads-plugin';
- *     protected $version = '0.5';
- *     protected $texdomain = 'oddp';
+ *     protected $id = 'my-plugin';
+ *     protected $version = '0.1';
+ *     protected $texdomain = 'my-plugin';
  *
  *     public function get_title($suffix = '', $sep = ' - ') {
  *         if (empty($suffix)) {
