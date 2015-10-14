@@ -5,7 +5,7 @@
 	"type": "library",
 	"license": "MPL-2.0",
 	"keywords": ["library"],
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"minimum-stability": "dev",
 	"authors": [
 		{
@@ -24,6 +24,6 @@
 	},
 	"require": {
 		"php": ">=5.3.1",
-		"latte/latte": "2.3.6"
+		"mustache/mustache": "~2.5"
 	}
 }

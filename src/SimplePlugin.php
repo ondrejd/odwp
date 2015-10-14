@@ -39,7 +39,7 @@ namespace odwp;
  * </pre>
  *
  * @author Ondřej Doněk, <ondrej.donek@ebrana.cz>
- * @version 0.1.5
+ * @version 0.1.6
  */
 abstract class SimplePlugin {
     /**
@@ -86,9 +86,9 @@ abstract class SimplePlugin {
 
     /**
      * Holds Latte templating engine.
-     * @var \Latte\Engine $latte
+     * @var \Mustache_Engine $tplEngine
      */
-    protected $latte;
+    protected $tplEngine;
 
     /**
      * Constructor.
@@ -108,19 +108,25 @@ abstract class SimplePlugin {
         }
 
         // Check if exists `cache` directory and try to create it if not.
-        $latte_cache = $this->get_path('cache');
+        $cache_path = $this->get_path('cache');
         if (!file_exists($this->get_path('cache'))) {
-            @mkdir($latte_cache, 0777);
+            @mkdir($cache_path, 0777);
         }
 
-        if (!is_dir($latte_cache) || !is_writable($latte_cache)) {
+        if (!is_dir($cache_path) || !is_writable($cache_path)) {
             throw new \Exception('You need to create cache directorry for Latte Templating Engine.');
         }
 
         // Initialize Latte for templating
         // @link https://doc.nette.org/cs/2.3/templating
-        $this->latte = new \Latte\Engine();
-        $this->latte->setTempDirectory($latte_cache);
+        $this->tplEngine = new \Mustache_Engine(array(
+//            'template_class_prefix' => '__MyTemplates_',
+            'cache' => $cache_path,
+            'cache_file_mode' => 0666,
+            'cache_lambda_templates' => true,
+            'charset' => 'UTF-8'
+        ));
+        //$this->latte->setTempDirectory($cache_path);
 
         // Initialize options
         $this->init_options();
@@ -268,7 +274,8 @@ abstract class SimplePlugin {
             throw new \Exception('Template "' . $path . '" was not found!');
         }
 
-        return $this->latte->renderToString($path, $params);
+        $tpl = $mustache->loadTemplate($tpl);
+        //return $this->latte->renderToString($path, $params);
     }
 
     /**
