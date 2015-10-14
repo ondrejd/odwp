@@ -120,7 +120,7 @@ abstract class SimplePlugin {
         }
 
         if (!is_dir($cache_path) || !is_writable($cache_path)) {
-            throw new \Exception('You need to create cache directorry for Latte Templating Engine.');
+            throw new \Exception('You need to create cache directorry for Mustache Templating Engine.');
         }
 
         // Initialize Mustache for templating
@@ -479,6 +479,8 @@ abstract class SimplePlugin {
      *
      * @since 0.1.3
      * @return void
+     * 
+     * @todo Add `Reset To Defaults` button!
      */
     public function render_admin_options_page() {
         $tpl = $this->get_template('admin_options_page');
@@ -537,7 +539,7 @@ abstract class SimplePlugin {
             $param['label'] = $option->label;
 
             $key = $option->key;
-            $value = array_key_exists($key, $current) ? $current[$key] : $default[$key];
+            $value = array_key_exists($key, $current) ? $current[$key] : $option->value;
 
             switch ($option->type) {
                 case \odwp\PluginOption::TYPE_BOOL:
