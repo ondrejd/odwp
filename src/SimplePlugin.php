@@ -29,11 +29,19 @@ namespace odwp;
  *             $suffix
  *         );
  *     }
+ *
+ *     public function activate() {
+ *         // ...
+ *     }
+ *
+ *     public function deactivate() {
+ *         // ...
+ *     }
  * }
  * </pre>
  *
  * @author Ondřej Doněk, <ondrej.donek@ebrana.cz>
- * @version 0.1.7
+ * @version 0.1.8
  */
 abstract class SimplePlugin {
     /**
@@ -139,13 +147,8 @@ abstract class SimplePlugin {
         $this->init_locales();
 
         // Plug-in's activation/deactivation
-        if (method_exists($this, 'activate')) {
-            register_activation_hook(__FILE__, array($this, 'activate'));
-        }
-
-        if (method_exists($this, 'deactivate')) {
-            register_deactivation_hook(__FILE__, array($this, 'deactivate'));
-        }
+        register_activation_hook(__FILE__, array($this, 'activate'));
+        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
 
         // Initialize plugin's widgets
         add_action('widgets_init', array($this, 'init_widgets'));
@@ -169,6 +172,22 @@ abstract class SimplePlugin {
             add_action('admin_menu', array($this, 'register_admin_options_page'));
         }
     }
+
+    /**
+     * Activates the plug-in.
+     *
+     * @since 0.1.8
+     * @return void
+     */
+    abstract public function activate();
+
+    /**
+     * Deactivates the plug-in.
+     *
+     * @since 0.1.8
+     * @return void
+     */
+    abstract public function deactivate();
 
     /**
      * Returns plug-in's ID (with optional suffix).
