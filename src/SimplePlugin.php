@@ -79,6 +79,12 @@ abstract class SimplePlugin {
     protected $widgets;
 
     /**
+     * Position in WP administration menu.
+     * @var integer $admin_menu_position
+     */
+    protected $admin_menu_position;
+
+    /**
      * If `TRUE` than default options page in WP administration will be used.
      * @var boolean $enable_default_options_page
      */
@@ -423,7 +429,7 @@ abstract class SimplePlugin {
             $this->get_id(),
             array($this, 'render_admin_page'),
             $this->get_icon('16'),
-            11
+            empty($this->admin_menu_position) ? null : $this->admin_menu_position
         );
     }
 
