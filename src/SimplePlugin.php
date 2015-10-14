@@ -27,7 +27,7 @@ namespace odwp;
  * </pre>
  *
  * @author Ondřej Doněk, <ondrej.donek@ebrana.cz>
- * @version 0.1.1
+ * @version 0.1.3
  */
 abstract class SimplePlugin {
     /**
@@ -49,6 +49,12 @@ abstract class SimplePlugin {
     protected $texdomain;
 
     /**
+     * The plug-in's title.
+     * @var string $title
+     */
+    protected $title;
+
+    /**
      * Version of the plug-in.
      * @var string $version
      */
@@ -59,6 +65,12 @@ abstract class SimplePlugin {
      * @var array $widgets
      */
     protected $widgets;
+
+    /**
+     * If `TRUE` than default options page in WP administration will be used.
+     * @var boolean
+     */
+    protected $enable_default_options_page = true;
 
     /**
      * Constructor.
@@ -82,7 +94,7 @@ abstract class SimplePlugin {
 
         // Initialize the localization
         if (!empty($this->textdomain)) {
-            load_plugin_textdomain($this->textdomain, true, $this->id());
+            load_plugin_textdomain($this->textdomain, true, $this->get_id());
         }
 
         // Plug-in's activation/deactivation
@@ -103,14 +115,78 @@ abstract class SimplePlugin {
         }
 
         // Register admin menu
-        if (method_exists($this, 'register_admin_menu')) {
-            add_action('admin_menu', array($this, 'register_admin_menu'));
-        }
+        add_action('admin_menu', array($this, 'register_admin_menu'));
 
         // Register TinyMCE buttons
         if (method_exists($this, 'register_tinymce_buttons')) {
             add_action('init', array($this, 'register_tinymce_buttons'));
         }
+
+        // Use default options page
+        if ($this->enable_default_options_page === true) {
+            add_action('admin_menu', array($this, 'register_admin_menu'));
+            add_action('admin_menu', array($this, 'register_admin_options_page'));
+            //
+        }
+    }
+
+    /**
+     * Returns plug-in's ID (with optional suffix).
+     *
+     * @since 0.1.3
+     * @param string $suffix (Optional).
+     * @return string
+     */
+    function get_id($suffix = '') {
+        $ret = $this->id;
+        if (!empty($suffix)) {
+            $ret .= $suffix;
+        }
+
+        return $ret;
+    }
+
+    /**
+     * Returns URL to the plug-in's icon.
+     *
+     * @since 0.1.3
+     * @param string $size (Optional.)
+     * @return string
+     */
+    public function get_icon($ize = '32') {
+        if (!defined('WP_PLUGIN_URL')) {
+            if (!function_exists('wp_plugin_directory_constants')) {
+                throw new \Exception('It looks like there is no WordPress loaded!');
+            }
+            wp_plugin_directory_constants();
+        }
+
+        return WP_PLUGIN_URL . '/' . $this->get_id('/icon' . $size . '.png');
+    }
+
+    /**
+     * Returns path to the plugin's directory. If `$file` is provided
+     * than is appended to the end of the path.
+     *
+     * @since 0.1.3
+     * @param string $file (Optional).
+     * @return string
+     */
+    public function get_path($file = '') {
+        if (!defined('WP_PLUGIN_DIR')) {
+            if (function_exists('wp_plugin_directory_constants')) {
+                throw new \Exception('It looks like there is no WordPress loaded!');
+            }
+            wp_plugin_directory_constants();
+        }
+
+        // TODO There is probably better constant than WP_CONTENT_DIR!
+        $path = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . $this->id;
+        if (!empty($file)) {
+            $path .= DIRECTORY_SEPARATOR . $file;
+        }
+
+        return $path;
     }
 
     /**
@@ -127,33 +203,60 @@ abstract class SimplePlugin {
     }
 
     /**
-     * @since 0.1
-     * @param string $suffix (Optional).
-     * @return string Returns plug-in's ID (with optional suffix).
+     * Returns title of the plug-in.
+     * 
+     * @since 0.1.3
+     * @param string $suffix (Optional.)
+     * @param string $sep (Optional.)
+     * @return string
      */
-    public function id($suffix = '') {
-        $ret = $this->id;
-        if (!empty($suffix)) {
-            $ret .= $suffix;
+    abstract public function get_title($suffix = '', $sep = ' - ');
+
+    /**
+     * Returns the template.
+     *
+     * @since 0.1.3
+     * @param string $tpl Name of template file.
+     * @param array $params
+     * @return string
+     */
+    public function get_template($tpl, $params = array()) {
+        $path = $tpl;
+        if (!file_exists($path)) {
+            $path = $this->get_path('templates' . DIRECTORY_SEPARATOR . $path . '.phtml');
+            if (!file_exists($path)) {
+                return '';
+            }
         }
+
+        throw new \Exception('Not implemented yet (use Latte)!');
+
+        ob_start();
+        extract($params);
+        include $path;
+        $ret = ob_get_clean();
 
         return $ret;
     }
 
     /**
+     * @deprecated
+     * @since 0.1
+     * @param string $suffix (Optional).
+     * @return string Returns plug-in's ID (with optional suffix).
+     */
+    public function id($suffix = '') {
+        return $this->get_id($suffix);
+    }
+
+    /**
+     * @deprecated
      * @since 0.1
      * @param string $size (Optional.)
      * @return string Returns URL to the plug-in's icon.
      */
     public function icon($size = '32') {
-        if (!defined('WP_PLUGIN_URL')) {
-            if (!function_exists('wp_plugin_directory_constants')) {
-                throw new \Exception('It looks like there is no WordPress loaded!');
-            }
-            wp_plugin_directory_constants();
-        }
-
-        return WP_PLUGIN_URL . '/' . $this->id('/icon' . $size . '.png');
+        return $this->get_icon($size);
     }
 
     /**
@@ -171,7 +274,7 @@ abstract class SimplePlugin {
             $this->options = array();
         }
 
-        $options_id = $this->id('-options');
+        $options_id = $this->get_id('-options');
         $options = get_option($options_id);
         $need_update = false;
 
@@ -201,6 +304,7 @@ abstract class SimplePlugin {
     /**
      * Initializes widgets (if are any defined).
      *
+     * @since 0.1.2
      * @return void
      */
     public function init_widgets() {
@@ -220,50 +324,67 @@ abstract class SimplePlugin {
     }
 
     /**
+     * @deprecated
      * @since 0.1
      * @param string $file (Optional).
      * @return string Returns path to the plugin's directory. If `$file` is
      *                provided than is appended to the end of the path.
      */
     public function path($file = '') {
-        if (!defined('WP_PLUGIN_DIR')) {
-            if (function_exists('wp_plugin_directory_constants')) {
-                throw new \Exception('It looks like there is no WordPress loaded!');
-            }
-            wp_plugin_directory_constants();
-        }
-
-        // TODO There is probably better constant than WP_CONTENT_DIR!
-        $path = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . $this->id;
-        if (!empty($file)) {
-            $path .= DIRECTORY_SEPARATOR . $file;
-        }
-
-        return $path;
+        return $this->get_path($file);
     }
 
     /**
+     * @deprecated
      * @since 0.1
      * @param string $tpl Name of template file.
      * @param array $params
      * @return string Returns the template.
      */
     public function template($tpl, $params = array()) {
-        $path = $tpl;
-        if (!file_exists($path)) {
-            $path = $this->path('templates' . DIRECTORY_SEPARATOR . $path . '.phtml');
-            if (!file_exists($path)) {
-                return '';
-            }
-        }
+        return $this->template($tpl, $params);
+    }
+  
+    /**
+     * Registers administration menu for the plugin.
+     *
+     * @since 0.1.3
+     * @return void
+     */
+    public function register_admin_menu() {
+        add_menu_page(
+            __('Photogallery', $this->get_textdomain()),
+            __('Photogallery', $this->get_textdomain()),
+            0,
+            $this->get_id(),
+            array($this, 'admin_page'),
+            $this->get_icon('16')
+        );
+    }
+  
+    /**
+     * Registers administration menu for the plugin.
+     *
+     * @since 0.1.3
+     * @return void
+     */
+    public function register_admin_options_page() {
+        add_submenu_page(
+            $this->get_id(),
+            $this->get_title(),
+            $this->get_title(__('Settings', $this->get_textdomain())),
+            0,
+            $this->get_id('-settings'),
+            array($this, 'render_admin_options_page')
+        );
+    }
 
-        throw new \Exception('Not implemented yet (use Latte)!');
-
-        ob_start();
-        extract($params);
-        include $path;
-        $ret = ob_get_clean();
-
-        return $ret;
+    /**
+     * @since 0.1.3
+     * @return string
+     */
+    public function render_admin_options_page() {
+        // ...
+        return '';
     }
 } // End of SimplePlugin
