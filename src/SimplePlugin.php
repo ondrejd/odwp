@@ -26,11 +26,11 @@ namespace odwp;
  *
  *     public function get_title($suffix = '', $sep = ' - ') {
  *         if (empty($suffix)) {
- *             return __('Downloads', $this->get_textdomain());
+ *             return __('My Plugin', $this->get_textdomain());
  *         }
  *
  *         return sprintf(
- *             __('Downloads%s%s', $this->get_textdomain()),
+ *             __('My Plugin%s%s', $this->get_textdomain()),
  *             $sep,
  *             $suffix
  *         );
@@ -39,7 +39,7 @@ namespace odwp;
  * </pre>
  *
  * @author Ondřej Doněk, <ondrej.donek@ebrana.cz>
- * @version 0.1.3
+ * @version 0.1.5
  */
 abstract class SimplePlugin {
     /**
@@ -80,9 +80,15 @@ abstract class SimplePlugin {
 
     /**
      * If `TRUE` than default options page in WP administration will be used.
-     * @var boolean
+     * @var boolean $enable_default_options_page
      */
     protected $enable_default_options_page = true;
+
+    /**
+     * Holds Latte templating engine.
+     * @var \Latte\Engine $latte
+     */
+    protected $latte;
 
     /**
      * Constructor.
@@ -100,6 +106,21 @@ abstract class SimplePlugin {
         ) {
             throw new \Exception('It looks like there is no WordPress loaded!');
         }
+
+        // Check if exists `cache` directory and try to create it if not.
+        $latte_cache = $this->get_path('cache');
+        if (!file_exists($this->get_path('cache'))) {
+            @mkdir($latte_cache, 0777);
+        }
+
+        if (!is_dir($latte_cache) || !is_writable($latte_cache)) {
+            throw new \Exception('You need to create cache directorry for Latte Templating Engine.');
+        }
+
+        // Initialize Latte for templating
+        // @link https://doc.nette.org/cs/2.3/templating
+        $this->latte = new \Latte\Engine();
+        $this->latte->setTempDirectory($latte_cache);
 
         // Initialize options
         $this->init_options();
@@ -138,7 +159,6 @@ abstract class SimplePlugin {
         if ($this->enable_default_options_page === true) {
             add_action('admin_menu', array($this, 'register_admin_menu'));
             add_action('admin_menu', array($this, 'register_admin_options_page'));
-            //
         }
     }
 
@@ -165,7 +185,7 @@ abstract class SimplePlugin {
      * @param string $size (Optional.)
      * @return string
      */
-    public function get_icon($ize = '32') {
+    public function get_icon($size = '32') {
         if (!defined('WP_PLUGIN_URL')) {
             if (!function_exists('wp_plugin_directory_constants')) {
                 throw new \Exception('It looks like there is no WordPress loaded!');
@@ -204,6 +224,7 @@ abstract class SimplePlugin {
     /**
      * Returns array with options of the plug-in.
      *
+     * @since 0.1
      * @return array
      */
     public function get_options() {
@@ -216,7 +237,7 @@ abstract class SimplePlugin {
 
     /**
      * Returns title of the plug-in.
-     * 
+     *
      * @since 0.1.3
      * @param string $suffix (Optional.)
      * @param string $sep (Optional.)
@@ -234,19 +255,35 @@ abstract class SimplePlugin {
      */
     public function get_template($tpl, $params = array()) {
         $path = $tpl;
+
         if (!file_exists($path)) {
-            $path = $this->get_path('templates' . DIRECTORY_SEPARATOR . $path . '.phtml');
-            if (!file_exists($path)) {
-                return '';
-            }
+            $path = $this->get_path('templates' . DIRECTORY_SEPARATOR . $tpl . '.latte');
         }
 
-        throw new \Exception('Not implemented yet (use Latte)!');
+        if (!file_exists($path)) {
+            $path = $this->get_core_path('templates' . DIRECTORY_SEPARATOR . $tpl . '.latte');
+        }
 
-        ob_start();
-        extract($params);
-        include $path;
-        $ret = ob_get_clean();
+        if (!file_exists($path)) {
+            throw new \Exception('Template "' . $path . '" was not found!');
+        }
+
+        return $this->latte->renderToString($path, $params);
+    }
+
+    /**
+     * @internal
+     * @since 0.1.5
+     * @param string $tpl Name of template file.
+     * @param array $params
+     * @return string
+     */
+    public function get_core_path($file = '') {
+        $ret = dirname(__DIR__);
+
+        if (!empty($file)) {
+            $ret .= DIRECTORY_SEPARATOR . $file;
+        }
 
         return $ret;
     }
@@ -366,7 +403,7 @@ abstract class SimplePlugin {
     public function template($tpl, $params = array()) {
         return $this->get_template($tpl, $params);
     }
-  
+
     /**
      * Registers administration menu for the plugin.
      *
@@ -375,15 +412,16 @@ abstract class SimplePlugin {
      */
     public function register_admin_menu() {
         add_menu_page(
-            __('Photogallery', $this->get_textdomain()),
-            __('Photogallery', $this->get_textdomain()),
-            0,
+            $this->get_title(),
+            $this->get_title(),
+            'edit_posts',
             $this->get_id(),
-            array($this, 'admin_page'),
-            $this->get_icon('16')
+            array($this, 'render_admin_page'),
+            $this->get_icon('16'),
+            11
         );
     }
-  
+
     /**
      * Registers administration menu for the plugin.
      *
@@ -395,18 +433,39 @@ abstract class SimplePlugin {
             $this->get_id(),
             $this->get_title(),
             $this->get_title(__('Settings', $this->get_textdomain())),
-            0,
+            'manage_options',
             $this->get_id('-settings'),
             array($this, 'render_admin_options_page')
         );
     }
 
     /**
+     * Renders default main page (in WP administration).
+     *
+     * @since 0.1.5
+     * @return string
+     */
+    public function render_admin_page() {
+        $params = array(
+            'icon' => $this->get_icon(),
+            'title' => $this->get_title(__('Settings', $this->get_textdomain()))
+        );
+
+        return $this->get_template('admin_page', $params);
+    }
+
+    /**
+     * Renders default options page (in WP administration).
+     *
      * @since 0.1.3
      * @return string
      */
     public function render_admin_options_page() {
-        // ...
-        return '';
+        $params = array(
+            'icon' => $this->get_icon(),
+            'title' => $this->get_title(__('Settings', $this->get_textdomain()))
+        );
+
+        return $this->get_template('admin_options_page', $params);
     }
 } // End of SimplePlugin
