@@ -256,26 +256,24 @@ abstract class SimplePlugin {
      *
      * @since 0.1.3
      * @param string $tpl Name of template file.
-     * @param array $params
      * @return string
      */
-    public function get_template($tpl, $params = array()) {
+    public function get_template($tpl) {
         $path = $tpl;
 
         if (!file_exists($path)) {
-            $path = $this->get_path('templates' . DIRECTORY_SEPARATOR . $tpl . '.latte');
+            $path = $this->get_path('templates' . DIRECTORY_SEPARATOR . $tpl . '.mustache');
         }
 
         if (!file_exists($path)) {
-            $path = $this->get_core_path('templates' . DIRECTORY_SEPARATOR . $tpl . '.latte');
+            $path = $this->get_core_path('templates' . DIRECTORY_SEPARATOR . $tpl . '.mustache');
         }
 
         if (!file_exists($path)) {
             throw new \Exception('Template "' . $path . '" was not found!');
         }
 
-        $tpl = $mustache->loadTemplate($tpl);
-        //return $this->latte->renderToString($path, $params);
+        return file_get_contents($path);
     }
 
     /**
@@ -450,29 +448,31 @@ abstract class SimplePlugin {
      * Renders default main page (in WP administration).
      *
      * @since 0.1.5
-     * @return string
+     * @return void
      */
     public function render_admin_page() {
+        $tpl = $this->get_template('admin_page');
         $params = array(
             'icon' => $this->get_icon(),
-            'title' => $this->get_title(__('Settings', $this->get_textdomain()))
+            'title' => $this->get_title()
         );
 
-        return $this->get_template('admin_page', $params);
+        echo $this->tplEngine->render($tpl, $params);
     }
 
     /**
      * Renders default options page (in WP administration).
      *
      * @since 0.1.3
-     * @return string
+     * @return void
      */
     public function render_admin_options_page() {
+        $tpl = $this->get_template('admin_options_page');
         $params = array(
             'icon' => $this->get_icon(),
             'title' => $this->get_title(__('Settings', $this->get_textdomain()))
         );
 
-        return $this->get_template('admin_options_page', $params);
+        echo $this->tplEngine->render($tpl, $params);
     }
 } // End of SimplePlugin
