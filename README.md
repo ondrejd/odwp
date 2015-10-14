@@ -10,18 +10,12 @@ Usage is simple:
 
 ```php
 /**
- * My simple plugin.
+ * My simple plug-in.
  */
 class MySimplePlugin extends \odwp\SimplePlugin {
-    protected $id = 'od-downloads-plugin';
-    protected $version = '0.5';
-    protected $texdomain = 'oddp';
-    protected $options = array(
-        'main_downloads_dir' => 'wp-content/downloads/',
-        'downloads_page_id' => 0,
-        'downloads_thumb_size_width' => 146,
-        'downloads_shortlist_max_count' => 2
-    );
+    protected $id = 'my-plugin';
+    protected $version = '0.1';
+    protected $texdomain = 'my-plugin';
 
     public function get_title($suffix = '', $sep = ' - ') {
         if (empty($suffix)) {
