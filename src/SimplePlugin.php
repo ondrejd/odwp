@@ -23,6 +23,18 @@ namespace odwp;
  *         'downloads_thumb_size_width' => 146,
  *         'downloads_shortlist_max_count' => 2
  *     );
+ *
+ *     public function get_title($suffix = '', $sep = ' - ') {
+ *         if (empty($suffix)) {
+ *             return __('Downloads', $this->get_textdomain());
+ *         }
+ *
+ *         return sprintf(
+ *             __('Downloads%s%s', $this->get_textdomain()),
+ *             $sep,
+ *             $suffix
+ *         );
+ *     }
  * }
  * </pre>
  *
@@ -240,6 +252,16 @@ abstract class SimplePlugin {
     }
 
     /**
+     * Returns textdomain for localizing the plug-in.
+     *
+     * @since 0.1.4
+     * @return string
+     */
+    public function get_textdomain() {
+        return $this->textdomain;
+    }
+
+    /**
      * @deprecated
      * @since 0.1
      * @param string $suffix (Optional).
@@ -342,7 +364,7 @@ abstract class SimplePlugin {
      * @return string Returns the template.
      */
     public function template($tpl, $params = array()) {
-        return $this->template($tpl, $params);
+        return $this->get_template($tpl, $params);
     }
   
     /**
