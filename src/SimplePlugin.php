@@ -418,7 +418,7 @@ abstract class SimplePlugin {
      */
     public function render_admin_page() {
         // Render simple commmon main plug-in's admin page
-        echo $this->twig->render('admin_page.twig', array(
+        echo $this->twig->render('admin_page.html.twig', array(
             'icon' => $this->get_icon(),
             'title' => $this->get_title()
         ));
@@ -469,7 +469,7 @@ abstract class SimplePlugin {
         $params['options'] = $this->prepare_options_for_render($default, $current);
 
         // Render template
-        echo $this->twig->render('admin_options_page.twig', $params);
+        echo $this->twig->render('options_page.html.twig', $params);
     }
 
     /**
