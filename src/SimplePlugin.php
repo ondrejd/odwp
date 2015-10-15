@@ -14,6 +14,7 @@ namespace odwp;
  * Usage:
  * <pre>
  * class MySimplePlugin extends \odwp\SimplePlugin {
+ *     protected $classname = __CLASS__;
  *     protected $id = 'my-plugin';
  *     protected $version = '0.1';
  *     protected $texdomain = 'my-plugin';
@@ -29,21 +30,20 @@ namespace odwp;
  *             $suffix
  *         );
  *     }
- *
- *     public function activate() {
- *         // ...
- *     }
- *
- *     public function deactivate() {
- *         // ...
- *     }
  * }
  * </pre>
  *
  * @author Ondřej Doněk, <ondrej.donek@ebrana.cz>
- * @version 0.1.8
+ * @version 0.2
  */
 abstract class SimplePlugin {
+
+    /**
+     * Name of main plug-in's class.
+     * @var string $className
+     */
+    protected $class_name;
+
     /**
      * Identifier of the plug-in.
      * @var string $id
@@ -52,7 +52,7 @@ abstract class SimplePlugin {
 
     /**
      * Default options of the plug-in.
-     * @var array $options
+     * @var \odwp\Options $options
      */
     protected $options;
 
@@ -93,10 +93,10 @@ abstract class SimplePlugin {
     protected $enable_default_options_page = true;
 
     /**
-     * Holds Latte templating engine.
-     * @var \Mustache_Engine $tplEngine
+     * Holds Twig templating engine.
+     * @var \Twig_Environment $tplEngine
      */
-    protected $tplEngine;
+    protected $twig;
 
     /**
      * Holds `TRUE` if textdomain is already initialized.
@@ -111,16 +111,6 @@ abstract class SimplePlugin {
      * @return void
      */
     public function __construct() {
-        if (
-            !function_exists('load_plugin_textdomain') ||
-            !function_exists('register_activation_hook') ||
-            !function_exists('register_deactivation_hook') ||
-            !function_exists('add_action') ||
-            !function_exists('is_admin')
-        ) {
-            throw new \Exception('It looks like there is no WordPress loaded!');
-        }
-
         // Check if exists `cache` directory and try to create it if not.
         $cache_path = $this->get_path('cache');
         if (!file_exists($this->get_path('cache'))) {
@@ -128,17 +118,18 @@ abstract class SimplePlugin {
         }
 
         if (!is_dir($cache_path) || !is_writable($cache_path)) {
-            throw new \Exception('You need to create cache directorry for Mustache Templating Engine.');
+            throw new \Exception('You need to create cache directory for templats.');
         }
 
-        // Initialize Mustache for templating
-        // @link https://github.com/bobthecow/mustache.php
-        $this->tplEngine = new \Mustache_Engine(array(
-            'cache' => $cache_path,
-            'cache_file_mode' => 0666,
-            'cache_lambda_templates' => true,
-            'charset' => 'UTF-8'
-        ));
+		// Initialize Twig
+		// @link http://twig.sensiolabs.org/doc
+		$loader = new \Twig_Loader_Filesystem(array(
+			$this->get_path('templates'),
+			$this->get_core_path('templates')
+		));
+		$this->twig = new \Twig_Environment($loader, array(
+			'cache' => $cache_path
+		));
 
         // Initialize options
         $this->init_options();
@@ -149,6 +140,9 @@ abstract class SimplePlugin {
         // Plug-in's activation/deactivation
         register_activation_hook(__FILE__, array($this, 'activate'));
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
+
+        // Plug-in's uninstall
+		register_uninstall_hook(__FILE__, array($this, 'uninstall'));
 
         // Initialize plugin's widgets
         add_action('widgets_init', array($this, 'init_widgets'));
@@ -176,18 +170,38 @@ abstract class SimplePlugin {
     /**
      * Activates the plug-in.
      *
-     * @since 0.1.8
+     * @since 0.5
+     * @global wpdb $wpdb
      * @return void
      */
-    abstract public function activate();
+    public function activate() {
+        // ...
+    }
 
     /**
      * Deactivates the plug-in.
      *
-     * @since 0.1.8
+     * @since 0.5
      * @return void
      */
-    abstract public function deactivate();
+    public function deactivate() {
+        // ...
+    }
+
+    /**
+     * @since 0.1.9
+     * @param string $suffix (Optional.)
+     * @return string Returns plug-in's class name (with optional suffix).
+     */
+    public function get_classname($suffix = '') {
+        $ret = $this->classname;
+
+        if (!empty($suffix)) {
+            $ret .= $suffix;
+        }
+
+        return $ret;
+    }
 
     /**
      * Returns plug-in's ID (with optional suffix).
@@ -214,9 +228,6 @@ abstract class SimplePlugin {
      */
     public function get_icon($size = '32') {
         if (!defined('WP_PLUGIN_URL')) {
-            if (!function_exists('wp_plugin_directory_constants')) {
-                throw new \Exception('It looks like there is no WordPress loaded!');
-            }
             wp_plugin_directory_constants();
         }
 
@@ -233,9 +244,6 @@ abstract class SimplePlugin {
      */
     public function get_path($file = '') {
         if (!defined('WP_PLUGIN_DIR')) {
-            if (function_exists('wp_plugin_directory_constants')) {
-                throw new \Exception('It looks like there is no WordPress loaded!');
-            }
             wp_plugin_directory_constants();
         }
 
@@ -255,10 +263,6 @@ abstract class SimplePlugin {
      * @return array
      */
     public function get_options() {
-        if (!function_exists('get_option')) {
-            throw new \Exception('It looks like there is no WordPress loaded!');
-        }
-
         return get_option($this->id . '-options');
     }
 
@@ -271,31 +275,6 @@ abstract class SimplePlugin {
      * @return string
      */
     abstract public function get_title($suffix = '', $sep = ' - ');
-
-    /**
-     * Returns the template.
-     *
-     * @since 0.1.3
-     * @param string $tpl Name of template file.
-     * @return string
-     */
-    public function get_template($tpl) {
-        $path = $tpl;
-
-        if (!file_exists($path)) {
-            $path = $this->get_path('templates' . DIRECTORY_SEPARATOR . $tpl . '.mustache');
-        }
-
-        if (!file_exists($path)) {
-            $path = $this->get_core_path('templates' . DIRECTORY_SEPARATOR . $tpl . '.mustache');
-        }
-
-        if (!file_exists($path)) {
-            throw new \Exception('Template "' . $path . '" was not found!');
-        }
-
-        return file_get_contents($path);
-    }
 
     /**
      * @internal
@@ -325,28 +304,8 @@ abstract class SimplePlugin {
     }
 
     /**
-     * @deprecated
-     * @since 0.1
-     * @param string $suffix (Optional).
-     * @return string Returns plug-in's ID (with optional suffix).
-     */
-    public function id($suffix = '') {
-        return $this->get_id($suffix);
-    }
-
-    /**
-     * @deprecated
-     * @since 0.1
-     * @param string $size (Optional.)
-     * @return string Returns URL to the plug-in's icon.
-     */
-    public function icon($size = '32') {
-        return $this->get_icon($size);
-    }
-
-    /**
      * Initialize the localization.
-     * 
+     *
      * @return void
      */
     public function init_locales() {
@@ -363,10 +322,6 @@ abstract class SimplePlugin {
      * @return array
      */
     public function init_options() {
-        if (!function_exists('get_option') || !function_exists('update_option')) {
-            throw new \Exception('It looks like there is no WordPress loaded!');
-        }
-
         if (!is_array($this->options)) {
             $this->options = array();
         }
@@ -421,28 +376,6 @@ abstract class SimplePlugin {
     }
 
     /**
-     * @deprecated
-     * @since 0.1
-     * @param string $file (Optional).
-     * @return string Returns path to the plugin's directory. If `$file` is
-     *                provided than is appended to the end of the path.
-     */
-    public function path($file = '') {
-        return $this->get_path($file);
-    }
-
-    /**
-     * @deprecated
-     * @since 0.1
-     * @param string $tpl Name of template file.
-     * @param array $params
-     * @return string Returns the template.
-     */
-    public function template($tpl, $params = array()) {
-        return $this->get_template($tpl, $params);
-    }
-
-    /**
      * Registers administration menu for the plugin.
      *
      * @since 0.1.3
@@ -484,13 +417,11 @@ abstract class SimplePlugin {
      * @return void
      */
     public function render_admin_page() {
-        $tpl = $this->get_template('admin_page');
-        $params = array(
+        // Render simple commmon main plug-in's admin page
+        echo $this->twig->render('admin_page.twig', array(
             'icon' => $this->get_icon(),
             'title' => $this->get_title()
-        );
-
-        echo $this->tplEngine->render($tpl, $params);
+        ));
     }
 
     /**
@@ -498,11 +429,10 @@ abstract class SimplePlugin {
      *
      * @since 0.1.3
      * @return void
-     * 
+     *
      * @todo Add `Reset To Defaults` button!
      */
     public function render_admin_options_page() {
-        $tpl = $this->get_template('admin_options_page');
         $default = $this->options;
         $current = $this->get_options();
         $params = array(
@@ -539,7 +469,7 @@ abstract class SimplePlugin {
         $params['options'] = $this->prepare_options_for_render($default, $current);
 
         // Render template
-        echo $this->tplEngine->render($tpl, $params);
+        echo $this->twig->render('admin_options_page.twig', $params);
     }
 
     /**
@@ -612,5 +542,22 @@ abstract class SimplePlugin {
         }
 
         return update_option($this->get_id('-options'), $updated);
+    }
+
+    /**
+     * Uninstall.
+     *
+     * @since 0.1.7
+     * @return void
+     */
+    public function uninstall() {
+        if (!defined('WP_UNINSTALL_PLUGIN')) {
+            return;
+        }
+
+        // Delete options
+        delete_option($this->get_id('-options'));
+        // For site options in multisite
+        delete_site_option($this->get_id('-options'));
     }
 }

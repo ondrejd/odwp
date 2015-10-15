@@ -5,46 +5,44 @@
 
 	<h1>{{ title }}</h1>
 
-	{{# message }}
+	{% if message %}
 	<div id="{{ message_id }}" class="{{ message_type }} fade">
 		<p>{{ message_text }}</p>
 	</div>
-	{{/ message }}
+	{% endif %}
 
 	<form enctype="multipar/form-data" method="post" action="{{ form_url }}">
 		<div>
 			<table class="form-table">
-				{{# options }}
+				{% for option in options %}
 				<tr>
 					<th scope="row">
 						<label for="option-{{ key }}">{{ label }}</label>
 					</th>
 					<td>
-						{{# is_bool }}
-						{{# value }}
+						{% if is_bool %}
+						{% if value %}
 						<input type="checkbox" id="option-{{ key }}" name="option-{{ key }}" checked="checked"/>
-						{{/ value }}
-						{{^ value }}
+						{% else %}
 						<input type="checkbox" id="option-{{ key }}" name="option-{{ key }}"/>
-						{{/ value }}
-						{{/ is_bool }}
+						{% endif %}
+						{% endif %}
 
-						{{# is_number }}
+						{% if is_number %}
 						<input type="number" id="option-{{ key }}" name="option-{{ key }}" value="{{ value }}"/>
-						{{/ is_number }}
+						{% endif %}
 
-						{{# is_string }}
+						{% if is_string %}
 						<input type="text" class="regular-text" id="option-{{ key }}" name="option-{{ key }}" value="{{ value }}"/>
-						{{/ is_string }}
+						{% endif %}
 
-						{{# description }}
+						{% if description %}
 						<p id="{{ key }}-description" class="description">{{ description }}</p>
-						{{/ description }}
+						{% endif %}
 					</td>
 				</tr>
-				{{/ options }}
+				{% endfor %}
 			</table>
-			{{! TODO Translate submit button label! }}
 			<input type="submit" class="button button-primary" value="Saves Changes" name="submit"/>
 		</div>
 	</form>

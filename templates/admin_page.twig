@@ -5,11 +5,11 @@
 
 	<h1>{{ title }}</h1>
 
-	{{# message }}
+	{% if message %}
 	<div id="{{ message_id }}" class="{{ message_type }} fade">
-		<p>{{{ message_text }}}</p>
+		<p>{{ message_text|raw }}</p>
 	</div>
-	{{/ message }}
+	{% endif %}
 
-	<p>...</p>
+	<p>{{ welcome }}</p>
 </div>
